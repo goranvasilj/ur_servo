@@ -110,7 +110,7 @@ int main(int argc, char **argv)
   
   ros::NodeHandle n;
 
-  pub =n.advertise<trajectory_msgs::JointTrajectory>("eff_joint_traj_controller/command", 10);;
+  pub =n.advertise<trajectory_msgs::JointTrajectory>("scaled_pos_joint_traj_controller/command", 10);;
   ros::Subscriber sub = n.subscribe("/joint_states", 10, jointsCallback);
 
   ros::Subscriber sub1 = n.subscribe("/joint_reference", 10, jointsReferenceCallback);
