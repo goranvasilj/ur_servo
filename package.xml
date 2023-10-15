@@ -27,7 +27,7 @@
   <build_depend>tf2_eigen</build_depend>
   <build_depend>std_srvs</build_depend>
   <build_depend>trajectory_msgs</build_depend>
-
+  <run_depend>rospy</run_depend>
   <run_depend>spacenav_node</run_depend>
   <run_depend>joy_teleop</run_depend>  
 
