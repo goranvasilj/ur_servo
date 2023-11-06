@@ -17,7 +17,7 @@
 #include <ur_msgs/SetIO.h>
 #include <control_msgs/JointJog.h>
 enum OPERATION_MODE {
-	AUTO = 0, MANUAL = 1, STOP = 2
+	AUTO = 0, MANUAL = 1, STOP = 2, FOLLOW_MODE = 3
 };
 enum STATES {
 	IDLE = 0,
@@ -29,12 +29,14 @@ enum STATES {
 	SERVO_UP = 6,
 	GOTO_DROP = 7,
 	OPEN_TOOL = 8,
-	FINISHED = 9
+	FINISHED = 9,
+	FOLLOW = 10,
+	GOTO_HOME_FOLLOW = 11
 };
-
+double laser_pose[4][4];
 double above_point[4][4];
 double xref = 0, yref = 0, zref = 0, angle_final = 0;
-double speed_linear = 0.02, speed_angular = 0.03, speed_joint=0.06;
+double speed_linear = 0.02, speed_angular = 0.03, speed_joint=0.06*2*2;
 double jointInfo[6];
 OPERATION_MODE operation_mode = OPERATION_MODE::MANUAL;
 STATES manual_command = STATES::IDLE;
@@ -44,7 +46,10 @@ int force_limiting = 0;
 int joints_received = 0;
 ros::ServiceClient gripper_service;
 ros::Publisher servo_reference_publisher;
+ros::Publisher tool_pose_publisher;
 ros::Publisher servo_reference_joint_publisher;
+ros::Time received_follow_pose_time=ros::Time(0);
+geometry_msgs::PoseStamped follow_pose;
 bool change_state = true;
 int count_boxes = 0;
 std::vector<double> x_box;
@@ -104,6 +109,11 @@ void joints_callback(const sensor_msgs::JointState::ConstPtr &msg) {
 
 	}
 }
+void follow_pose_callback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
+	follow_pose = *msg;
+	received_follow_pose_time=ros::Time::now();
+}
+
 void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 	operation_mode = (OPERATION_MODE) (*msg).data;
 	current_state = STATES::IDLE;
@@ -383,6 +393,33 @@ bool goto_home() {
 	return go_to_joint(joint);
 }
 
+bool goto_home_follow() {
+	sensor_msgs::JointState joints_home;
+	double joint[6];
+	joint[0] = 180 / 180 * 3.14159265;
+	joint[1] = -90. / 180 * 3.14159265;
+	joint[2] = -60. / 180 * 3.14159265;
+	joint[3] = -50. / 180 * 3.14159265;
+	joint[4] = 80. / 180 * 3.14159265;
+	joint[5] = -90. / 180 * 3.14159265;
+
+	double T[4][4];
+	ur_kinematics::forward(joint, &T[0][0]);
+	prepare_transformation(&T[0][0]);
+
+	printf("home\n");
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			printf("%.2f ", T[i][j]);
+		}
+		printf("\n");
+
+	}
+	change_state = false;
+	return go_to_joint(joint);
+}
+
+
 bool goto_above() {
 	sensor_msgs::JointState joints_home;
 	double joint[6];
@@ -655,6 +692,93 @@ bool scan() {
 	change_state = false;
 	return false;
 }
+bool servo_roll_pitch(double angle1,double angle2) {
+	geometry_msgs::Twist ref;
+	ref.linear.x = 0;
+	ref.linear.y = 0;
+	ref.linear.z = 0;
+	if (fabs(angle1)>0.1)
+	{
+		angle1=0.01*sign(angle1);
+	}
+	else
+	{
+		angle1=angle1*0.1;
+	}
+	if (fabs(angle2)>0.1)
+	{
+		angle2=0.01*sign(angle2);
+	}
+	else
+	{
+		angle1=angle1*0.1;
+	}
+
+	ref.angular.x = angle1;
+	ref.angular.y = angle2;
+	ref.angular.z = 0;
+	servo_reference_publisher.publish(ref);
+	change_state = false;
+	if (force_limiting == 1) {
+		return true;
+	} else {
+		return false;
+	}
+}
+bool follow() {
+	static tf::Quaternion q_start, q_goal;
+	geometry_msgs::Twist ref;
+	ros::Duration d=ros::Time::now()-received_follow_pose_time;
+	static double joints_start[6];
+	if (change_state) {
+		for (int i = 0; i < 6; i++) {
+			joints_start[i] = jointInfo[i];
+		}
+	}
+	if (d.toSec()>2)
+	{
+		ref.linear.x = 0;
+		ref.linear.y = 0;
+		ref.linear.z = 0;
+		ref.angular.x = 0;
+		ref.angular.y = 0;
+		ref.angular.z = 0;
+
+		servo_reference_publisher.publish(ref);
+	}
+	else
+	{
+		double joints[6] = { 0 };
+		double x=follow_pose.pose.position.x;
+		double y=follow_pose.pose.position.y;
+		double z=follow_pose.pose.position.z;
+
+		double x_a=x*laser_pose[0][0]+y*laser_pose[0][1]+z*laser_pose[0][2]+laser_pose[0][3];
+		double y_a=x*laser_pose[1][0]+y*laser_pose[1][1]+z*laser_pose[1][2]+laser_pose[1][3];
+		double z_a=x*laser_pose[2][0]+y*laser_pose[2][1]+z*laser_pose[2][2]+laser_pose[2][3];
+
+		double angle1=atan(y_a/x_a);
+		double angle2=atan(z_a/x_a);
+		printf("angle 1 angle2 %.4f %.4f  x y z %.3f %.3f %.3f  xa ya za %.3f %.3f %.3f\n",angle1,angle2, x,y,z,x_a,y_a,z_a);
+		for (int i=0;i<6;i++)
+		{
+			joints[i]=joints_start[i];
+		}
+	    joints[0]=jointInfo[0]+angle1;
+	    joints[3]=jointInfo[3];
+	    joints[4]=jointInfo[4];
+	    joints[3]=jointInfo[3]+angle2;
+	    //servo_roll_pitch(angle1,-angle2);
+		if (go_to_joint(joints)) {
+
+		}
+	}
+	change_state = false;
+	return false;
+}
+
+
+
 bool goto_drop() {
 	stop_movement();
 	return true;
@@ -854,6 +978,23 @@ void update() {
 				change_state = true;
 			}
 			break;
+		case STATES::GOTO_HOME_FOLLOW:
+			if (goto_home_follow()) {
+				current_state = STATES::FOLLOW;
+				if (operation_mode == OPERATION_MODE::MANUAL)
+					operation_mode = OPERATION_MODE::STOP;
+				change_state = true;
+			}
+			break;
+		case STATES::FOLLOW:
+			if (follow()) {
+				current_state = STATES::FINISHED;
+				if (operation_mode == OPERATION_MODE::MANUAL)
+					operation_mode = OPERATION_MODE::STOP;
+				change_state = true;
+			}
+			break;
+
 		}
 	}
 }
@@ -870,7 +1011,7 @@ int main(int argc, char **argv) {
 			"/servo_reference", servoing_topic, operation_mode_topic,
 			manual_command_topic, joint_velocity_cmd_topic =
 					"/servo_joint_reference", object_location_update_topic,
-			servo_force_limiting_topic, box_position_array_topic;
+			servo_force_limiting_topic, box_position_array_topic, follow_pose_topic, tool_pose_topic;
 	nh_ns.param("joint_states_topic", joint_states_topic,
 			(std::string) "/joint_states");
 	nh_ns.param("servoing_topic", servoing_topic,
@@ -883,12 +1024,21 @@ int main(int argc, char **argv) {
 			(std::string) "/object_location_update");
 	nh_ns.param("servo_force_limiting", servo_force_limiting_topic,
 			(std::string) "/servo_force_limiting");
-
 	nh_ns.param("box_position_array_topic", box_position_array_topic,
 			(std::string) "/box_position");
+	nh_ns.param("follow_pose_topic", follow_pose_topic,
+			(std::string) "/hawk1/uav_pose");
+	nh_ns.param("tool_pose_topic", tool_pose_topic,
+			(std::string) "/tool_pose");
+
 
 	ros::Subscriber joints_subscriber = nh.subscribe(joint_states_topic, 1000,
 			joints_callback);
+
+
+	ros::Subscriber follow_pose_subscriber = nh.subscribe(follow_pose_topic, 1000,
+			follow_pose_callback);
+
 
 	ros::Subscriber box_position_subscriber = nh.subscribe(
 			box_position_array_topic, 1000, box_position_array_callback);
@@ -913,6 +1063,9 @@ int main(int argc, char **argv) {
 	servo_reference_publisher = nh.advertise < geometry_msgs::Twist
 			> (velocity_cmd_topic, 1000);
 
+	tool_pose_publisher = nh.advertise < std_msgs::Float32MultiArray
+			> (tool_pose_topic, 1000);
+
 	servo_reference_joint_publisher = nh.advertise < control_msgs::JointJog
 			> (joint_velocity_cmd_topic, 1000);
 	jointInfo[0] = 0;
@@ -921,12 +1074,51 @@ int main(int argc, char **argv) {
 	jointInfo[3] = 0;
 	jointInfo[4] = 0;
 	jointInfo[5] = 0;
-
+	double T_start[16];
 	ros::Rate loop_rate(20);
-	operation_mode = OPERATION_MODE::AUTO;
-	//current_state = STATES::SERVO_DOWN;
+	operation_mode = OPERATION_MODE::FOLLOW_MODE;
+	current_state = STATES::GOTO_HOME_FOLLOW;
 	//	current_state=STATES::SCAN;
+	tf::TransformListener listener;
 	while (ros::ok()) {
+	    tf::StampedTransform transform;
+	    try{
+	      listener.lookupTransform("/os_sensor","/base_link_enu_aligned",
+	                               ros::Time(0), transform);
+	      tf::Matrix3x3 mat=transform.getBasis();
+	      tf::Vector3 vec=transform.getOrigin();
+	      for (int i=0;i<3;i++)
+	      {
+	    	  	 for (int j=0;j<3;j++)
+	    	  	 {
+	    	  		 laser_pose[i][j]=mat[i][j];
+	    	  	 }
+	      }
+	      laser_pose[3][0]=0;
+	      laser_pose[3][1]=0;
+	      laser_pose[3][2]=0;
+	      laser_pose[3][3]=1;
+	      laser_pose[0][3]=vec[0];
+	      laser_pose[1][3]=vec[1];
+	      laser_pose[2][3]=vec[2];
+	      printf("Laser pose\n");
+	      for (int i=0;i<4;i++)
+	      {
+	    	  	 for (int j=0;j<4;j++)
+	    	  	 {
+	    	  		 	 printf("%.2f ",laser_pose[i][j]);
+	    	  	 }
+	    	  	 printf("\n");
+	      }
+	      printf("\n");
+	    }
+	    catch (tf::TransformException ex){
+	      ROS_ERROR("%s",ex.what());
+	      ros::Duration(1.0).sleep();
+	    }
+
+
+
 		if (joints_received == 1) {
 			std::cout << "Mode " << current_state << "operation mode "
 					<< operation_mode << std::endl;
@@ -934,7 +1126,20 @@ int main(int argc, char **argv) {
 			//servo_up();
 			update();
 		}
+		if (joints_received == 1)
+		{
+			ur_kinematics::forward(jointInfo, T_start);
+			prepare_transformation(T_start);
 
+			std_msgs::Float32MultiArray msg;
+			std::vector<float> vec;
+			for (int i=0;i<4;i++)
+				for (int j=0;j<4;j++)
+
+					vec.push_back(T_start[i*4+j]);
+			msg.data=vec;
+			tool_pose_publisher.publish(msg);
+		}
 		ros::spinOnce();
 		loop_rate.sleep();
 	}

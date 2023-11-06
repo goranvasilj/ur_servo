@@ -3,7 +3,7 @@
   <include file="$(find ur_robot_driver)/launch/ur10e_bringup.launch">
      <arg name="controllers" default="joint_state_controller speed_scaling_state_controller force_torque_sensor_controller joint_group_vel_controller " doc="Controllers that are activated by default."/>
      <arg name="stopped_controllers" default="scaled_pos_joint_traj_controller pos_joint_traj_controller" doc="Controllers that are initally loaded, but not started."/>
-  <arg name="robot_ip" default="192.168.1.33" doc="IP address by which the robot can be reached."/>     
+  <arg name="robot_ip" default="192.168.2.33" doc="IP address by which the robot can be reached."/>     
   </include>
   
   <include file="$(find ur10e_moveit_config)/launch/moveit_planning_execution.launch">
@@ -13,4 +13,10 @@
     <param name="parameter_ns" type="string" value="optional_parameter_namespace" />
     <rosparam ns="optional_parameter_namespace" command="load" file="$(find servoing_force_ur)/config/ur_simulated_config.yaml" />
   </node>
+  <node pkg="tf" type="static_transform_publisher" name="tool_to_lidar" args="0.1 0 0.07 3.14159 -1.5708 0 tool0 os_sensor 100" />
+  <node pkg="tf" type="static_transform_publisher" name="base_link_rotation" args="0 0 0 3.14159 0 0 base_link_kinematics base_link  100" />
+
+
+
+  
 </launch>

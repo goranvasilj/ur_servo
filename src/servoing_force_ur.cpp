@@ -76,7 +76,7 @@ void servo_joint_reference_callback(const control_msgs::JointJog::ConstPtr &msg)
 		{
 			dt=0.001;
 		}
-		double max_acceleration=0.1;
+		double max_acceleration=0.2;
 		for (int i=0;i<6;i++)
 		{
 			double new_value=servo_joint_reference.velocities[i];
@@ -123,7 +123,7 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 		{
 			desired_vector[2]=-1;
 		}
-		double force_gain = 0.05;//0.1      //total force controller gain is force_gain * desired_velocity
+		double force_gain = 0.1;//0.1      //total force controller gain is force_gain * desired_velocity
 		double force_error[3];
 
 		forcex = forcex * 0.8 + force_torque.wrench.force.x * 0.2;
@@ -166,25 +166,29 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 		if (force_gain * force_error[2] > 0) {
 			dz = force_gain * force_error[2];
 		}
-		if (dx > 6)
-			dx = 6;
-		if (dy > 6)
-			dy = 6;
-		if (dx<3)
+		if (fabs(dx) > 6)
+			dx = 6*sign(dx);
+		if (fabs(dy) > 6)
+			dy = sign(dy)*6;
+
+
+		if (fabs(dx)<3)
 			dx=0;
 		else
-			dx=dx-3;
-		if (dy<3)
+			dx=sign(dx)*(fabs(dx)-3);
+		if (fabs(dy)<3)
 			dy=0;
 		else
-			dy=dy-3;
+			dy=sign(dy)*(fabs(dy)-3);
+
 		if (dz > 6)                 /// (dz-1)*desired_velocity  maximal speed in counter direction
 			dz = 6;
 
 		ref.header.stamp = ros::Time::now();
-		ref.twist.linear.x = desired_velocity /* desired_vector[0] */* (1 - dx);
-		ref.twist.linear.y = desired_velocity /* desired_vector[1] */* (1 - dy);
+		ref.twist.linear.x = desired_velocity *(-dx)*0;//* desired_vector[0] * (1 - dx);
+		ref.twist.linear.y = desired_velocity* (-dy)*0;// * desired_vector[1] * (1 - dy);
 		ref.twist.linear.z = desired_velocity * desired_vector[2] * (1 - dz);
+
 		static int force_limit_count=0;
 		if (fabs(forcez - force_z0)>3)
 		{
@@ -278,7 +282,7 @@ int main(int argc, char **argv) {
 			(std::string) "/servo_server/delta_joint_cmds");
 
 	nh_ns.param("desired_force", desired_force, 5.0);
-	nh_ns.param("desired_velocity", desired_velocity, 0.02);
+	nh_ns.param("desired_velocity", desired_velocity, 0.01);
 
 	ros::Subscriber joints_subscriber = nh.subscribe(joint_states_topic, 1000,
 			joints_callback);
