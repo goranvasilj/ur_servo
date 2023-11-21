@@ -13,7 +13,7 @@ windows:
   - sensors:
       layout: tiled
       panes:
-        - waitForRos; roslaunch ouster_ros lamor_front.launch
+        - waitForRos; roslaunch uav_ros_general ouster_filtered_front.launch sensor_hostname:=192.168.0.11 udp_dest:=192.168.0.10
         - waitForRos; roslaunch vectornav vectornav.launch
   - detection:
       layout: tiled

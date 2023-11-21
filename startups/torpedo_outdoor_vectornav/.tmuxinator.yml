@@ -13,7 +13,7 @@ windows:
   - sensors:
       layout: tiled
       panes:
-        - waitForRos; roslaunch ouster_ros lamor_front.launch
+        - waitForRos; roslaunch uav_ros_general ouster_filtered_front.launch sensor_hostname:=192.168.0.11 udp_dest:=192.168.0.10
         - waitForRos; roslaunch vectornav vectornav.launch
   - detection:
       layout: tiled
@@ -24,6 +24,6 @@ windows:
   - robotic_arm:
       layout: tiled
       panes:
-        - waitForRos; source /home/inuc/catkin_ws_ur/devel/setup.zsh; roslaunch servoing_force_ur robot.launch
-        - waitForRos; source /home/inuc/catkin_ws_ur/devel/setup.zsh; sleep 10; rosrun servoing_force_ur ur_control_mbzirc
-        - waitForRos; source /home/inuc/catkin_ws_ur/devel/setup.zsh; sleep 10; rosrun servoing_force_ur servoing_force_ur
+        - waitForRos; roslaunch servoing_force_ur robot.launch
+        - waitForRos; sleep 10; rosrun servoing_force_ur ur_control_mbzirc
+        - waitForRos; sleep 10; rosrun servoing_force_ur servoing_force_ur
