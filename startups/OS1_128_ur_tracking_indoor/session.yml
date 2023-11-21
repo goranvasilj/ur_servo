@@ -1,0 +1,29 @@
+name: lidar_detection
+root: ./
+startup_window: roscore
+pre_window: 
+  export UAV_NAMESPACE=hawk1 &&
+windows:
+  - multimaster:
+      layout: tiled
+      panes:
+        - roscore
+        - waitForRos; rosrun fkie_master_discovery master_discovery
+        - waitForRos; rosrun fkie_master_sync master_sync
+  - sensors:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch ouster_ros lamor_front.launch
+        - waitForRos; roslaunch uav_ros_general apm2.launch namespace:=ur_pixhawk
+  - detection:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch uav_pcl_detection ground.launch config:=$(pwd)/custom_config/uav_pcl_detection.yaml
+        - waitForRos; roslaunch uav_pcl_detection tracking_with_transform.launch imu_topic:=/ur_pixhawk/mavros/imu/data ur_transform_topic:=/tool_pose transform_config:=$(pwd)/custom_config/robotic_arm_transform.yaml
+        - cd ..
+  - robotic_arm:
+      layout: tiled
+      panes:
+        - waitForRos; source /home/inuc/catkin_ws_ur/devel/setup.zsh; roslaunch servoing_force_ur robot.launch
+        - waitForRos; source /home/inuc/catkin_ws_ur/devel/setup.zsh; sleep 10; rosrun servoing_force_ur ur_control_mbzirc
+        - waitForRos; source /home/inuc/catkin_ws_ur/devel/setup.zsh; sleep 10; rosrun servoing_force_ur servoing_force_ur

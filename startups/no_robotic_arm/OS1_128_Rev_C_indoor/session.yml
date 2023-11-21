@@ -1,0 +1,16 @@
+name: lidar_detection
+root: ./
+startup_window: roscore
+pre_window: 
+  export UAV_NAMESPACE=hawk1 &&
+windows:
+  - sensors:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch ouster_ros lamor.launch
+  - detection:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch uav_pcl_detection ground.launch config:=$(pwd)/custom_config/uav_pcl_detection.yaml
+        - waitForRos; roslaunch uav_pcl_detection tracking.launch
+        - cd ..

@@ -1,0 +1,51 @@
+base_link: "os_lidar"
+
+# Static drop box
+crop_box:
+  enable: True
+  x_min: -1.5
+  x_max: 10.0
+  y_min: -4.0
+  y_max:  4.0
+  z_min: -100
+  z_max: 100
+
+# Crop box around centroid from roi_centroids topic
+crop_roi:
+    enable: False
+    size: 2.0 # Box size of crop box ROI
+
+cluster:
+  min: 1        # Min number of points considered as cluster
+  max: 1000     # Clusters larger than this get discarded
+  distance: 0.2 # Max distance between points of same cluster
+
+# Large clusters are broken into smaller sub-clusters
+subcluster:
+  subclustering_enabled: True
+  bounding_box_limit: 0.6 # Bounding box threshold for activating subclustering
+  k: 4                    # Number of subclusters
+
+  # Determine K adaptively at run-time based on cluster volumes
+  #     K = factor * cluster_volume / bounding_box_limit**3 + 1
+  enable_adaptive_k: True
+  adaptive_k_factor: 2
+
+filters:
+    reflectivity_filter_enable: True
+    reflectivity_filter_thresh: 30000 #8000
+    intensity_filter_thresh: 800
+    intensity_range: 10
+    range_filter_enable: True
+    range_filter_thresh: 10.0 # If(range>thresh) discard point
+    voxel_filter_size: 0.2
+    # Remove small and sparse clusters
+    volume_and_density_filter_enable: False
+    volume_low: 0.03
+    volume_high: 0.20
+    density_thresh: 50
+    # Statystical outlier removal
+    SOR:
+        enable: False
+        sigma_thresh: 3
+        mean_K: 20

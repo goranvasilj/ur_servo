@@ -1,0 +1,17 @@
+name: lidar_detection
+root: ./
+startup_window: roscore
+pre_window: 
+  export UAV_NAMESPACE=hawk1 &&
+windows:
+  - sensors:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch ouster_ros os0-32.launch
+        - waitForRos; roslaunch uav_ros_general apm2.launch namespace:=ur_pixhawk
+  - detection:
+      layout: tiled
+      panes:
+        - waitForRos; roslaunch uav_pcl_detection ground.launch config:=$(pwd)/custom_config/uav_pcl_detection.yaml
+        - waitForRos; roslaunch uav_pcl_detection tracking_with_transform.launch imu_topic:=/ur_pixhawk/mavros/imu/data ur_transform_topic:=/tool_pose
+        - cd ..
