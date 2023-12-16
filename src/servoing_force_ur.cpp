@@ -380,11 +380,11 @@ int main(int argc, char **argv) {
 
 
 	//topic for receiving servoing reference in cartesian space
-	nh_ns.param("servo_reference", servo_reference_topic,
+	nh_ns.param("servo_reference_topic", servo_reference_topic,
 			(std::string) "/servo_reference");
 
 	//topic for receiving servoing reference in joint space
-	nh_ns.param("servo_joint_reference", servo_joint_reference_topic,
+	nh_ns.param("servo_joint_reference_topic", servo_joint_reference_topic,
 			(std::string) "/servo_joint_reference");
 
 	//topic for receiving transformation of tool pose in robot base frame
