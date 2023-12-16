@@ -16,7 +16,7 @@
 
 sensor_msgs::JointState joints;
 geometry_msgs::WrenchStamped force_torque;
-control_msgs::JointJog servo_joint_reference, servo_joint_reference_old;
+control_msgs::JointJog servo_joint_reference, servo_joint_reference_old, servo_joint_reference_received;
 geometry_msgs::Twist servo_reference;
 int received_servo_reference_cartesian_space = 0;
 int received_servo_reference_joint_space = 0;
@@ -24,7 +24,7 @@ int force_limiting = 0;
 bool first = true;
 control_msgs::JointJog old_servo_joint_reference;
 ros::Time time_joint_reference;
-ros::Time time_joint_reference_old;
+ros::Time time_joint_reference_old, time_joint_reference_received;
 std_msgs::Float32MultiArray tool_pose;
 double max_acceleration = 0.2;
 bool received_tool_pose = false;
@@ -68,58 +68,8 @@ void servo_joint_reference_callback(
 	received_servo_reference_cartesian_space = 0;
 	received_servo_reference_joint_space = 1;
 
-	if (first == false) {
-		//remember reference from previous step in variable _old
-		servo_joint_reference_old = servo_joint_reference;
-		time_joint_reference_old = time_joint_reference;
-	}
-
-	servo_joint_reference = *msg;
-	time_joint_reference = ros::Time::now();
-
-	if (first == true) {
-		//for first step set reference to 0
-		for (int i = 0; i < 6; i++) {
-			servo_joint_reference.velocities[i] = 0;
-		}
-		servo_joint_reference_old = servo_joint_reference;
-		time_joint_reference_old = time_joint_reference;
-
-	} else {
-
-		//limit acceleration between previous and current step
-		ros::Duration diff = time_joint_reference - time_joint_reference_old;
-		double dt = diff.toSec();
-		//if there is delay detween references it could cause large jump
-		if (dt > 0.2) {
-			dt = 0.002;
-		}
-
-		//if time between reference is 0, set it to 1ms
-		if (dt < 0.001) {
-			dt = 0.001;
-		}
-
-		for (int i = 0; i < 6; i++) {
-			double new_value = servo_joint_reference.velocities[i];
-
-			//dx is difference between current and new reference
-			double dx = servo_joint_reference.velocities[i]
-					- servo_joint_reference_old.velocities[i];
-
-			//if acceleration if greater than max allowed acc, limit its value based on previous reference and max acc
-			if (fabs(dx / dt) > max_acceleration) {
-				new_value = servo_joint_reference_old.velocities[i]
-						+ sign(dx) * max_acceleration * dt;
-			}
-
-			//check if new reference value is less than reference in this and previous steps
-			if (fabs(new_value) < fabs(servo_joint_reference.velocities[i]) || fabs(new_value)<fabs(servo_joint_reference_old.velocities[i])) {
-				servo_joint_reference.velocities[i] = new_value;
-			}
-		}
-	}
-	first = false;
+	servo_joint_reference_received = *msg;
+	time_joint_reference_received = ros::Time::now();
 }
 
 //calculate roll angle in local coordinate frame, it corresponds to tilting of gripper left - right
@@ -350,6 +300,71 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 	}
 }
 
+//limits acceleration on individual joints
+void limit_acceleration_for_joint_servoing()
+{
+	printf("1\n");
+	if (first == false) {
+		//remember reference from previous step in variable _old
+		servo_joint_reference_old = servo_joint_reference;
+		time_joint_reference_old = time_joint_reference;
+	}
+	printf("2\n");
+	time_joint_reference=ros::Time::now();
+	if (first == true) {
+		printf("3\n");
+		servo_joint_reference=servo_joint_reference_received;
+		//for first step set reference to 0
+		for (int i = 0; i < 6; i++) {
+			servo_joint_reference.velocities[i] = 0;
+		}
+		servo_joint_reference_old = servo_joint_reference;
+		time_joint_reference_old = time_joint_reference;
+
+	} else {
+		printf("4\n");
+
+		//limit acceleration between previous and current step
+		ros::Duration diff = time_joint_reference - time_joint_reference_old;
+		double dt = diff.toSec();
+		//if there is delay detween references it could cause large jump
+		if (dt > 0.2) {
+			dt = 0.002;
+		}
+		printf("5\n");
+
+		//if time between reference is 0, set it to 1ms
+		if (dt < 0.001) {
+			dt = 0.001;
+		}
+		printf("6\n");
+
+		for (int i = 0; i < 6; i++) {
+			double new_value = servo_joint_reference_received.velocities[i];
+			servo_joint_reference.velocities[i]=servo_joint_reference_received.velocities[i];
+			printf("7\n");
+
+			//dx is difference between current and new reference
+			double dx = servo_joint_reference_received.velocities[i]
+					- servo_joint_reference_old.velocities[i];
+			printf("7\n");
+			//if acceleration if greater than max allowed acc, limit its value based on previous reference and max acc
+			if (fabs(dx / dt) > max_acceleration) {
+				new_value = servo_joint_reference_old.velocities[i]
+						+ sign(dx) * max_acceleration * dt;
+			}
+			printf("9\n");
+
+			//check if new reference value is less than reference in this and previous steps
+			if (fabs(new_value) < fabs(servo_joint_reference_received.velocities[i]) || fabs(new_value)<fabs(servo_joint_reference_old.velocities[i])) {
+				servo_joint_reference.velocities[i] = new_value;
+			}
+		}
+	}
+	first = false;
+
+}
+
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "servoing_force_ur");
 	ros::NodeHandle nh;
@@ -465,7 +480,6 @@ int main(int argc, char **argv) {
 		reference = calculate_reference(desired_force, desired_velocity);
 		reference.header.stamp = ros::Time::now();
 
-
 		servo_joint_reference.header.stamp = ros::Time::now();
 		std::cout << reference << " received reference 1 "
 				<< received_servo_reference_cartesian_space
@@ -477,7 +491,7 @@ int main(int argc, char **argv) {
 		if (received_servo_reference_cartesian_space == 1) {
 			velocity_reference_publisher.publish(reference);
 		} else if (received_servo_reference_joint_space == 1) {
-
+			limit_acceleration_for_joint_servoing();
 			velocity_joint_reference_publisher.publish(servo_joint_reference);
 		}
 
