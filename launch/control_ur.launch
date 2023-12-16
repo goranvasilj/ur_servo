@@ -1,0 +1,34 @@
+<launch>
+  <node name="ur_control_mbzirc" pkg="servoing_force_ur" type="ur_control_mbzirc">
+    <param name="joint_states_topic" value="/joint_states"/>
+    <param name="operation_mode" value="/operation_mode"/>
+    <param name="manual_command" value="/manual_command"/>
+    <param name="servo_force_limiting" value="/servo_force_limiting"/>
+    <param name="box_position_array_topic" value="/box_position"/>
+    <param name="follow_pose_topic" value="/hawk1/uav_pose"/>
+    <param name="tool_pose_topic" value="/tool_pose"/>
+    <param name="velocity_cmd_topic" value="/servo_reference"/>
+    <param name="joint_velocity_cmd_topic" value="/servo_joint_reference"/>
+    <param name="gripper_service_name" value="/ur_hardware_interface/set_io"/>
+    <param name="base_link_enu_aligned_frame" value="/base_link_enu_aligned"/>
+    <param name="lidar_sensor_frame" value="/os_sensor"/>
+    <param name="joint_servoing_speed" value="0.1"/>
+    <param name="joint_tracking_speed" value="0.24"/>
+    <param name="joint_position_loop_gain" value="1.5"/>
+  </node>
+
+ <node name="servoing_force_ur" pkg="servoing_force_ur" type="servoing_force_ur" output="screen">
+    <param name="max_acceleration" value="0.2"/>
+    <param name="force_torque_topic" value="/wrench"/>
+    <param name="twist_desired_command" value="/servo_server/delta_twist_cmds"/>
+    <param name="joint_desired_command" value="/servo_server/delta_joint_cmds"/>
+    <param name="desired_force" value="5.0"/>
+    <param name="desired_velocity" value="0.01"/>
+    <param name="joint_states_topic" value="/joint_states"/>
+    <param name="tool_pose_topic" value="/tool_pose"/>
+    <param name="servo_force_limiting_topic" value="/servo_force_limiting"/>
+    <param name="servo_joint_reference_topic" value="/servo_joint_reference"/>
+    <param name="servo_reference_topic" value="/servo_reference"/>    
+   
+  </node>
+</launch>
