@@ -16,7 +16,8 @@
 
 sensor_msgs::JointState joints;
 geometry_msgs::WrenchStamped force_torque;
-control_msgs::JointJog servo_joint_reference, servo_joint_reference_old, servo_joint_reference_received;
+control_msgs::JointJog servo_joint_reference, servo_joint_reference_old,
+		servo_joint_reference_received;
 geometry_msgs::Twist servo_reference;
 int received_servo_reference_cartesian_space = 0;
 int received_servo_reference_joint_space = 0;
@@ -90,8 +91,10 @@ double get_roll() {
 
 	return roll;
 }
-
-
+double distance(double x1,double y1,double z1,double x2, double y2, double z2)
+{
+	return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)+(z2-z1));
+}
 
 double forcex = 0, forcey = 0, forcez = 0;
 double tx = 0, ty = 0, tz = 0;
@@ -107,7 +110,6 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 			servo_reference.linear.z * servo_reference.linear.z
 					+ servo_reference.linear.x * servo_reference.linear.x
 					+ servo_reference.linear.y * servo_reference.linear.y);
-
 
 	//if not servoing down copy received values
 	if ((servo_reference.linear.z) < 0.99 * dist_lin
@@ -177,7 +179,6 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 			dz = force_gain * force_error[2];
 		}
 
-
 		//limit output
 		if (fabs(dx) > 6)
 			dx = 6 * sign(dx);
@@ -185,24 +186,23 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 			dy = sign(dy) * 6;
 
 		//allow gripper to move left or right if forces are high
-		if (fabs(dx) < 2)
+		if (fabs(dx) < 1)
 			dx = 0;
 		else
-			dx = sign(dx) * (fabs(dx) - 2);
-		if (fabs(dy) < 2)
+			dx = sign(dx) * (fabs(dx) - 1);
+		if (fabs(dy) < 1)
 			dy = 0;
 		else
-			dy = sign(dy) * (fabs(dy) - 2);
+			dy = sign(dy) * (fabs(dy) - 1);
 
 		//for z components make it easier to achieve greater velocities when forces are high
-		if (dz>2)
-		{
-			dz=pow(dz-1,1.5)+2;
+		if (dz > 2) {
+			dz = pow(dz - 1, 1.5) + 2;
 		}
 
 		//limit z component
 		if (dz > 10) /// (dz-1)*desired_velocity  maximal speed in counter direction
-		{
+				{
 			dz = 10;
 		}
 
@@ -212,7 +212,6 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 		ref.twist.linear.y = desired_velocity * (dy); // * desired_vector[1] * (1 - dy);
 		//z reference must have velocity 1 if forces are 0
 		ref.twist.linear.z = desired_velocity * desired_vector[2] * (1 - dz);
-
 
 		//if limiting forxces for 40 cycles send it on topic to start closing gripper
 		static int force_limit_count = 0;
@@ -225,19 +224,54 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 			force_limit_count = 0;
 		}
 
-		//if roll is too high, one side is on package and needs to start moving in positive direction to envelop the package
-		if (roll > 0.05) {
-			ref.twist.linear.y += 0.01;
+		static int found_too_large_roll = 0;
+		static double x_too_large_roll=0,y_too_large_roll=0,z_too_large_roll=0;
+		double x_current,y_current,z_current;
+		x_current=tool_pose.data[3];
+		y_current=tool_pose.data[7];
+		z_current=tool_pose.data[11];
+		if (fabs(roll) > 0.05) {
+			if (found_too_large_roll == 0)
+			{
+				x_too_large_roll=tool_pose.data[3];
+				y_too_large_roll=tool_pose.data[7];
+				z_too_large_roll=tool_pose.data[11];
+				found_too_large_roll=1;
+			}
+			double dist=distance(x_current, y_current, 0,x_too_large_roll, y_too_large_roll,0);
+			printf("roll distance %.2f",dist);
+			double scale=1;
+			if (found_too_large_roll==2)
+			{
+				scale=-1;
+			}
+			if (dist>0.1 && found_too_large_roll==1){
+				found_too_large_roll=2;
+				scale=-1;
+			}
+			if (found_too_large_roll==2 && dist>0.15)
+			{
+				scale=1;
+				found_too_large_roll=3;
+			}
+			//if roll is too high, one side is on package and needs to start moving in positive direction to envelop the package
+			if (roll > 0.05) {
+
+				ref.twist.linear.y += 0.01*scale ;
 //			ref.twist.linear.z-=0.01;
 
-		}
-		//if roll is too low, other side is on package and needs to start moving in negative direction to envelop the package
-		if (roll < -0.05) {
-			ref.twist.linear.y += -0.01;
+			}
+			//if roll is too low, other side is on package and needs to start moving in negative direction to envelop the package
+			if (roll < -0.05) {
+				ref.twist.linear.y += -0.01*scale;
 //			ref.twist.linear.z-=0.01;
 
+			}
 		}
-
+		else
+		{
+			found_too_large_roll=0;
+		}
 		//limit maximal velocity
 		if (fabs(ref.twist.linear.x) > desired_velocity * 1.01 * 5)
 			ref.twist.linear.x = desired_velocity * 5;
@@ -275,7 +309,7 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 				<< force_error[2] << "forcez forcez0 " << forcez << " "
 				<< force_z0 << "tx ty " << tx << " " << ty << std::endl;
 
-		double torque_gain = 0.02;
+		double torque_gain = 0.02 / 2;
 		//caluclate angular reference in a way to reduce the torque
 		ref.twist.angular.x = -tx * torque_gain;
 		ref.twist.angular.y = -ty * torque_gain;
@@ -301,19 +335,15 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 }
 
 //limits acceleration on individual joints
-void limit_acceleration_for_joint_servoing()
-{
-	printf("1\n");
+void limit_acceleration_for_joint_servoing() {
 	if (first == false) {
 		//remember reference from previous step in variable _old
 		servo_joint_reference_old = servo_joint_reference;
 		time_joint_reference_old = time_joint_reference;
 	}
-	printf("2\n");
-	time_joint_reference=ros::Time::now();
+	time_joint_reference = ros::Time::now();
 	if (first == true) {
-		printf("3\n");
-		servo_joint_reference=servo_joint_reference_received;
+		servo_joint_reference = servo_joint_reference_received;
 		//for first step set reference to 0
 		for (int i = 0; i < 6; i++) {
 			servo_joint_reference.velocities[i] = 0;
@@ -322,7 +352,6 @@ void limit_acceleration_for_joint_servoing()
 		time_joint_reference_old = time_joint_reference;
 
 	} else {
-		printf("4\n");
 
 		//limit acceleration between previous and current step
 		ros::Duration diff = time_joint_reference - time_joint_reference_old;
@@ -331,32 +360,31 @@ void limit_acceleration_for_joint_servoing()
 		if (dt > 0.2) {
 			dt = 0.002;
 		}
-		printf("5\n");
 
 		//if time between reference is 0, set it to 1ms
 		if (dt < 0.001) {
 			dt = 0.001;
 		}
-		printf("6\n");
 
 		for (int i = 0; i < 6; i++) {
 			double new_value = servo_joint_reference_received.velocities[i];
-			servo_joint_reference.velocities[i]=servo_joint_reference_received.velocities[i];
-			printf("7\n");
+			servo_joint_reference.velocities[i] =
+					servo_joint_reference_received.velocities[i];
 
 			//dx is difference between current and new reference
 			double dx = servo_joint_reference_received.velocities[i]
 					- servo_joint_reference_old.velocities[i];
-			printf("7\n");
 			//if acceleration if greater than max allowed acc, limit its value based on previous reference and max acc
 			if (fabs(dx / dt) > max_acceleration) {
 				new_value = servo_joint_reference_old.velocities[i]
 						+ sign(dx) * max_acceleration * dt;
 			}
-			printf("9\n");
 
 			//check if new reference value is less than reference in this and previous steps
-			if (fabs(new_value) < fabs(servo_joint_reference_received.velocities[i]) || fabs(new_value)<fabs(servo_joint_reference_old.velocities[i])) {
+			if (fabs(new_value)
+					< fabs(servo_joint_reference_received.velocities[i])
+					|| fabs(new_value)
+							< fabs(servo_joint_reference_old.velocities[i])) {
 				servo_joint_reference.velocities[i] = new_value;
 			}
 		}
@@ -372,7 +400,9 @@ int main(int argc, char **argv) {
 
 	int refresh_rate;
 	std::string joint_states_topic, force_torque_topic,
-			twist_velocity_cmd_topic, joint_velocity_cmd_topic, tool_pose_topic, servo_force_limiting_topic, servo_reference_topic, servo_joint_reference_topic;
+			twist_velocity_cmd_topic, joint_velocity_cmd_topic, tool_pose_topic,
+			servo_force_limiting_topic, servo_reference_topic,
+			servo_joint_reference_topic;
 	;
 	std::string dynamixel_service;
 	double desired_force, desired_velocity;
@@ -393,7 +423,6 @@ int main(int argc, char **argv) {
 	nh_ns.param("joint_desired_command", joint_velocity_cmd_topic,
 			(std::string) "/servo_server/delta_joint_cmds");
 
-
 	//topic for receiving servoing reference in cartesian space
 	nh_ns.param("servo_reference_topic", servo_reference_topic,
 			(std::string) "/servo_reference");
@@ -406,8 +435,8 @@ int main(int argc, char **argv) {
 	nh_ns.param("tool_pose_topic", tool_pose_topic, (std::string) "/tool_pose");
 
 	//maximal acceleration for joint servoing
-	nh_ns.param("servo_force_limiting_topic", servo_force_limiting_topic, (std::string) "/servo_force_limiting");
-
+	nh_ns.param("servo_force_limiting_topic", servo_force_limiting_topic,
+			(std::string) "/servo_force_limiting");
 
 	//maximal acceleration for joint servoing
 	nh_ns.param("max_acceleration", max_acceleration, 0.2);
@@ -417,8 +446,6 @@ int main(int argc, char **argv) {
 
 	//desired velocity for downward servoing
 	nh_ns.param("desired_velocity", desired_velocity, 0.01);
-
-
 
 	//subscriber for joint states
 	ros::Subscriber joints_subscriber = nh.subscribe(joint_states_topic, 1000,
@@ -451,7 +478,7 @@ int main(int argc, char **argv) {
 
 	//publisher that publish if servoing downward hit an obstacle
 	ros::Publisher force_limiting_publisher = nh.advertise < std_msgs::Int32
-			> ( servo_force_limiting_topic, 1000);
+			> (servo_force_limiting_topic, 1000);
 
 	/*
 
@@ -481,12 +508,12 @@ int main(int argc, char **argv) {
 		reference.header.stamp = ros::Time::now();
 
 		servo_joint_reference.header.stamp = ros::Time::now();
-		std::cout << reference << " received reference 1 "
+/*		std::cout << reference << " received reference 1 "
 				<< received_servo_reference_cartesian_space
 				<< " received reference 2 "
 				<< received_servo_reference_joint_space << std::endl;
 		std::cout << servo_joint_reference << std::endl;
-
+*/
 		//send corresponding reference depending what command was last given
 		if (received_servo_reference_cartesian_space == 1) {
 			velocity_reference_publisher.publish(reference);
