@@ -1,5 +1,5 @@
 <launch>
-  <node name="ur_control_mbzirc" pkg="servoing_force_ur" type="ur_control_mbzirc">
+  <node name="ur_control_mbzirc" pkg="servoing_force_ur" type="ur_control_mbzirc" >
     <param name="joint_states_topic" value="/joint_states"/>
     <param name="operation_mode" value="/operation_mode"/>
     <param name="manual_command" value="/manual_command"/>
