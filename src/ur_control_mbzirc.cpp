@@ -226,7 +226,7 @@ void prepare_transformation_inverse(double *T) {
 }
 
 //servoing in joint space to reach defined joint configuration
-bool go_to_joint(double *joints, double speed_joint) {
+bool go_to_joint(double *joints, double speed_joint, bool sync_arrival_of_all_joints) {
 
 	control_msgs::JointJog ref;
 
@@ -238,17 +238,42 @@ bool go_to_joint(double *joints, double speed_joint) {
 	ref.joint_names.push_back("wrist_3_joint");
 	double joint_position_gain = 1.5;
 	double sum = 0;
+	double max_offset=fabs(joints[0] - jointInfo[0]);
 	for (int i = 0; i < 6; i++) {
 		double diff = joints[i] - jointInfo[i];
 		sum = sum + fabs(diff);
-		double vel = diff * joint_position_gain;
-		if (fabs(vel) > speed_joint) {
-			vel = sign(vel) * speed_joint;
+		if (sync_arrival_of_all_joints == false)
+		{
+			double vel = diff * joint_position_gain;
+			if (fabs(vel) > speed_joint) {
+				vel = sign(vel) * speed_joint;
+			}
+			ref.velocities.push_back(vel);
+			std::cout << vel << std::endl;
 		}
-		ref.velocities.push_back(vel);
-		std::cout << vel << std::endl;
+		else
+		{
+			if (fabs(diff)>max_offset)
+			{
+				max_offset=fabs(diff);
+			}
+		}
 
 	}
+	if (sync_arrival_of_all_joints == true){
+		for (int i = 0; i < 6; i++) {
+			double diff = joints[i] - jointInfo[i];
+			double scaling = fabs(diff)/max_offset;
+			double vel = diff * joint_position_gain;
+
+			if (fabs(vel) > speed_joint) {
+				vel = sign(vel) * speed_joint*scaling;
+			}
+			ref.velocities.push_back(vel);
+			std::cout << vel << std::endl;
+		}
+	}
+
 	ref.header.stamp = ros::Time::now();
 	servo_reference_joint_publisher.publish(ref);
 	if (sum < 0.01) {
@@ -370,8 +395,8 @@ bool goto_home() {
 	double joint[6];
 	joint[0] = 180 / 180 * 3.14159265;
 	joint[1] = -90. / 180 * 3.14159265;
-	joint[2] = -50. / 180 * 3.14159265;
-	joint[3] = -80. / 180 * 3.14159265;
+	joint[2] = -40. / 180 * 3.14159265;
+	joint[3] = -90. / 180 * 3.14159265;
 	joint[4] = 80. / 180 * 3.14159265;
 	joint[5] = -90. / 180 * 3.14159265;
 
@@ -388,7 +413,7 @@ bool goto_home() {
 
 	}
 	change_state = false;
-	return go_to_joint(joint, speed_joint);
+	return go_to_joint(joint, speed_joint,false);
 }
 
 //go to the home position for tracking UAV
@@ -415,7 +440,7 @@ bool goto_home_follow() {
 
 	}
 	change_state = false;
-	return go_to_joint(joint, speed_joint);
+	return go_to_joint(joint, speed_joint, false);
 }
 
 //go to the calculated point above the object to be grabbed
@@ -542,7 +567,7 @@ bool goto_above() {
 	change_state = false;
 	//return false;
 
-	return go_to_joint(joint, speed_joint);
+	return go_to_joint(joint, speed_joint, true);
 	//return go_to(&above_point[0][0]);
 
 }
@@ -644,7 +669,7 @@ bool stop_movement() {
 bool scan() {
 	static double T_start[16] = { 0 };
 	static double joints_start[6] = { 0 };
-	double scan_limit = 0.5, increment = -0.2;
+	double scan_limit = 0.5, increment = -0.15;
 	static int scan_line = 0;
 	static int increment_line = 0;
 	static ros::Time start = ros::Time::now();
@@ -678,22 +703,22 @@ bool scan() {
 		}
 		//move from -0.3 to +0.3
 		if (scan_line % 2 == 0) {
-			joints[0] = joints[0] + 0.3;
+			joints[0] = joints[0] + 0.7;
 
 		} else {
-			joints[0] = joints[0] - 0.3;
+			joints[0] = joints[0] - 0.4;
 		}
 		//increase pictch of the viewangle
 		joints[3] = joints[3] + pitch0;
 
-		if (go_to_joint(joints, speed_joint)) {
+		if (go_to_joint(joints, speed_joint, false)) {
 			scan_line = scan_line + 1;
 			pitch0 += increment;
 		}
 
 	}
-	//go to 0.8 from home position
-	if (fabs(pitch0) > 0.8) {
+	//go to 0.6 from home position
+	if (fabs(pitch0) > 0.62) {
 		ref.linear.x = 0;
 		ref.linear.y = 0;
 		ref.linear.z = 0;
@@ -788,7 +813,7 @@ bool follow() {
 		joints[4] = jointInfo[4];
 		//wrist 1 solves y offset
 		joints[3] = jointInfo[3] + angle2;
-		if (go_to_joint(joints, speed_joint_tracking)) {
+		if (go_to_joint(joints, speed_joint_tracking, false)) {
 
 		}
 	}
@@ -819,7 +844,7 @@ bool goto_drop() {
 		}
 		printf("\n");
 	}
-	return go_to_joint(&T[0][0], speed_joint);
+	return go_to_joint(&T[0][0], speed_joint, false);
 }
 
 //servo with defined force down toward object
@@ -892,7 +917,7 @@ bool calculate_above_pose() {
 		//above position is 34 cm above object (14cm object height + 20cm)
 		x_final = x_box[count_boxes / 2];
 		y_final = y_box[count_boxes / 2];
-		z_final = z_box[count_boxes / 2] + 0.34;
+		z_final = z_box[count_boxes / 2] + 0.44;
 		angle_final = 6.28 - angle_box[count_boxes / 2] + 3.14159 / 2;
 
 		//fill transformation matrix
