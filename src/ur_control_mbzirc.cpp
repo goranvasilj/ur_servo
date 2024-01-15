@@ -17,7 +17,7 @@
 #include <ur_msgs/SetIO.h>
 #include <control_msgs/JointJog.h>
 enum OPERATION_MODE {
-	AUTO = 0, MANUAL = 1, STOP = 2, FOLLOW_MODE = 3, TEST = 4
+	AUTO = 0, MANUAL = 1, STOP = 2, FOLLOW_MODE = 3, TEST = 4, DOCKING_MODE = 5
 };
 enum STATES {
 	IDLE = 0,
@@ -32,7 +32,9 @@ enum STATES {
 	FINISHED = 9,
 	FOLLOW = 10,
 	GOTO_HOME_FOLLOW = 11,
-	TEST_SERVO = 12
+	TEST_SERVO = 12,
+	GOTO_HOME_DOCKING = 13,
+	DOCKING = 14
 };
 double laser_pose[4][4];
 double above_point[4][4];
@@ -134,6 +136,10 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 	current_state = STATES::IDLE;
 	if (operation_mode == OPERATION_MODE::TEST) {
 		current_state = STATES::TEST_SERVO;
+		operation_mode = OPERATION_MODE::AUTO;
+	}
+	if (operation_mode == OPERATION_MODE::DOCKING_MODE) {
+		current_state = STATES::GOTO_HOME_DOCKING;
 		operation_mode = OPERATION_MODE::AUTO;
 	}
 	change_state = true;
@@ -426,7 +432,7 @@ bool goto_home() {
 bool goto_home_follow() {
 	sensor_msgs::JointState joints_home;
 	double joint[6];
-	joint[0] = -90 / 180 * 3.14159265;
+	joint[0] = -90. / 180 * 3.14159265;
 	joint[1] = -90. / 180 * 3.14159265;
 	joint[2] = -60. / 180 * 3.14159265;
 	joint[3] = -50. / 180 * 3.14159265;
@@ -449,6 +455,33 @@ bool goto_home_follow() {
 	return go_to_joint(joint, speed_joint, false);
 }
 
+
+//go to the home position for docking procedure
+bool goto_home_docking() {
+	sensor_msgs::JointState joints_home;
+	double joint[6];
+	joint[0] = -90. / 180 * 3.14159265;
+	joint[1] = -101. / 180 * 3.14159265;
+	joint[2] = -16. / 180 * 3.14159265;
+	joint[3] = -92. / 180 * 3.14159265;
+	joint[4] = 92. / 180 * 3.14159265;
+	joint[5] = -90. / 180 * 3.14159265;
+
+	double T[4][4];
+	ur_kinematics::forward(joint, &T[0][0]);
+	prepare_transformation(&T[0][0]);
+
+	printf("home\n");
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			printf("%.2f ", T[i][j]);
+		}
+		printf("\n");
+
+	}
+	change_state = false;
+	return go_to_joint(joint, speed_joint, false);
+}
 //go to the calculated point above the object to be grabbed
 bool goto_above() {
 	sensor_msgs::JointState joints_home;
@@ -1067,6 +1100,25 @@ void update() {
 				change_state = true;
 			}
 			break;
+		case STATES::GOTO_HOME_DOCKING:
+			//go to home position for docking procedure
+			if (goto_home_docking()) {
+				current_state = STATES::FOLLOW;
+				if (operation_mode == OPERATION_MODE::MANUAL)
+					operation_mode = OPERATION_MODE::STOP;
+				change_state = true;
+			}
+			break;
+		case STATES::DOCKING:
+			//docking procedure
+
+			current_state = STATES::FINISHED;
+			if (operation_mode == OPERATION_MODE::MANUAL)
+				operation_mode = OPERATION_MODE::STOP;
+			change_state = true;
+
+			break;
+
 		}
 	}
 }
