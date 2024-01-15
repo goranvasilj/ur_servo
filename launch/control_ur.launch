@@ -1,5 +1,5 @@
 <launch>
-  <node name="ur_control_mbzirc" pkg="servoing_force_ur" type="ur_control_mbzirc" >
+  <node name="ur_control_mbzirc" pkg="servoing_force_ur" type="ur_control_mbzirc" output="screen">
     <param name="joint_states_topic" value="/joint_states"/>
     <param name="operation_mode" value="/operation_mode"/>
     <param name="manual_command" value="/manual_command"/>
@@ -17,7 +17,7 @@
     <param name="joint_position_loop_gain" value="1.5"/>
   </node>
 
- <node name="servoing_force_ur" pkg="servoing_force_ur" type="servoing_force_ur" output="screen">
+ <node name="servoing_force_ur" pkg="servoing_force_ur" type="servoing_force_ur" >
     <param name="max_acceleration" value="0.2"/>
     <param name="force_torque_topic" value="/wrench"/>
     <param name="twist_desired_command" value="/servo_server/delta_twist_cmds"/>

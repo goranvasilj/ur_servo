@@ -249,6 +249,7 @@ bool go_to_joint(double *joints, double speed_joint, bool sync_arrival_of_all_jo
 				vel = sign(vel) * speed_joint;
 			}
 			ref.velocities.push_back(vel);
+
 			std::cout << vel << std::endl;
 		}
 		else
@@ -393,7 +394,7 @@ bool goto_home() {
 	//go to predefined home position
 	sensor_msgs::JointState joints_home;
 	double joint[6];
-	joint[0] = 180 / 180 * 3.14159265;
+	joint[0] = -90. / 180 * 3.14159265;
 	joint[1] = -90. / 180 * 3.14159265;
 	joint[2] = -40. / 180 * 3.14159265;
 	joint[3] = -90. / 180 * 3.14159265;
@@ -404,14 +405,19 @@ bool goto_home() {
 	ur_kinematics::forward(joint, &T[0][0]);
 	prepare_transformation(&T[0][0]);
 
-	printf("home\n");
+/*	printf("home\n");
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			printf("%.2f ", T[i][j]);
 		}
 		printf("\n");
 
+	}*/
+	for (int i=0;i<6;i++)
+	{
+		printf("%.2f %.2f\n",joint[i],jointInfo[i]);
 	}
+	printf("\n");
 	change_state = false;
 	return go_to_joint(joint, speed_joint,false);
 }
@@ -420,7 +426,7 @@ bool goto_home() {
 bool goto_home_follow() {
 	sensor_msgs::JointState joints_home;
 	double joint[6];
-	joint[0] = 180 / 180 * 3.14159265;
+	joint[0] = -90 / 180 * 3.14159265;
 	joint[1] = -90. / 180 * 3.14159265;
 	joint[2] = -60. / 180 * 3.14159265;
 	joint[3] = -50. / 180 * 3.14159265;
@@ -523,8 +529,8 @@ bool goto_above() {
 //		joint[3] = -66. / 180 * 3.14159265;
 //		joint[4] = 80. / 180 * 3.14159265;
 //		joint[5] = -90. / 180 * 3.14159265;
-		if (sols[i * 6 + 0] > 135 * 3.14159 / 180
-				&& sols[i * 6 + 0] < 225 * 3.14159 / 180) {
+		if (sols[i * 6 + 0] > -135 * 3.14159 / 180
+				&& sols[i * 6 + 0] < 45 * 3.14159 / 180) {
 			if (sols[i * 6 + 1] > -170 * 3.14159 / 180
 					&& sols[i * 6 + 1] < -90 * 3.14159 / 180) {
 				if (sols[i * 6 + 2] > -120 * 3.14159 / 180
