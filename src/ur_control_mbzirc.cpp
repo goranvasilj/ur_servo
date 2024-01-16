@@ -142,6 +142,10 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 		current_state = STATES::GOTO_HOME_DOCKING;
 		operation_mode = OPERATION_MODE::AUTO;
 	}
+	if (operation_mode== OPERATION_MODE::FOLLOW_MODE){
+		current_state=STATES::GOTO_HOME_FOLLOW;
+		operation_mode = OPERATION_MODE::AUTO;	
+	}
 	change_state = true;
 
 }
@@ -432,7 +436,7 @@ bool goto_home() {
 bool goto_home_follow() {
 	sensor_msgs::JointState joints_home;
 	double joint[6];
-	joint[0] = -90. / 180 * 3.14159265;
+	joint[0] =-3.2;// -90. / 180 * 3.14159265;
 	joint[1] = -90. / 180 * 3.14159265;
 	joint[2] = -60. / 180 * 3.14159265;
 	joint[3] = -50. / 180 * 3.14159265;
@@ -1298,7 +1302,7 @@ int main(int argc, char **argv) {
 
 	while (ros::ok()) {
 		//find transform form base_link frame to lidar frame for transformation of received uav pose in robot base frame to lidar frame
-		if (operation_mode == OPERATION_MODE::FOLLOW_MODE) {
+		if (operation_mode == OPERATION_MODE::AUTO) {
 			if (current_state == STATES::GOTO_HOME_FOLLOW
 					|| current_state == STATES::FOLLOW) {
 				read_transform();
