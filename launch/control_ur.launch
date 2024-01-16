@@ -5,7 +5,7 @@
     <param name="manual_command" value="/manual_command"/>
     <param name="servo_force_limiting" value="/servo_force_limiting"/>
     <param name="box_position_array_topic" value="/box_position"/>
-    <param name="follow_pose_topic" value="/hawk1/uav_pose"/>
+    <param name="follow_pose_topic" value="/lidar_nuc/uav_pose"/>
     <param name="tool_pose_topic" value="/tool_pose"/>
     <param name="velocity_cmd_topic" value="/servo_reference"/>
     <param name="joint_velocity_cmd_topic" value="/servo_joint_reference"/>
@@ -13,12 +13,12 @@
     <param name="base_link_enu_aligned_frame" value="/base_link_enu_aligned"/>
     <param name="lidar_sensor_frame" value="/os_sensor"/>
     <param name="joint_servoing_speed" value="0.1"/>
-    <param name="joint_tracking_speed" value="0.24"/>
-    <param name="joint_position_loop_gain" value="1.5"/>
+    <param name="joint_tracking_speed" value="0.34"/>
+    <param name="joint_position_loop_gain" value="3.5"/>
   </node>
 
  <node name="servoing_force_ur" pkg="servoing_force_ur" type="servoing_force_ur" >
-    <param name="max_acceleration" value="0.2"/>
+    <param name="max_acceleration" value="0.6"/>
     <param name="force_torque_topic" value="/wrench"/>
     <param name="twist_desired_command" value="/servo_server/delta_twist_cmds"/>
     <param name="joint_desired_command" value="/servo_server/delta_joint_cmds"/>
