@@ -249,7 +249,7 @@ geometry_msgs::TwistStamped calculate_reference(double desired_force,
 				found_too_large_roll=2;
 				scale=-1;
 			}
-			if (found_too_large_roll==2 && dist>0.15)
+			if (found_too_large_roll==2 && dist>0.2)
 			{
 				scale=1;
 				found_too_large_roll=3;
