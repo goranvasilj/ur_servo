@@ -17,7 +17,7 @@
 #include <ur_msgs/SetIO.h>
 #include <control_msgs/JointJog.h>
 enum OPERATION_MODE {
-	AUTO = 0, MANUAL = 1, STOP = 2, FOLLOW_MODE = 3, TEST = 4, DOCKING_MODE = 5
+	AUTO = 0, MANUAL = 1, STOP = 2, FOLLOW_MODE = 3, TEST = 4, DOCKING_MODE = 5, FOLLOW_MODE_2 = 6
 };
 enum STATES {
 	IDLE = 0,
@@ -34,7 +34,8 @@ enum STATES {
 	GOTO_HOME_FOLLOW = 11,
 	TEST_SERVO = 12,
 	GOTO_HOME_DOCKING = 13,
-	DOCKING = 14
+	DOCKING = 14,
+	GOTO_HOME_FOLLOW2 = 15
 };
 double laser_pose[4][4];
 double above_point[4][4];
@@ -460,6 +461,32 @@ bool goto_home_follow() {
 }
 
 
+//go to the home position for tracking UAV 2
+bool goto_home_follow2() {
+	sensor_msgs::JointState joints_home;
+	double joint[6];
+	joint[0] = -90. / 180 * 3.14159265;
+	joint[1] = -90. / 180 * 3.14159265;
+	joint[2] = -60. / 180 * 3.14159265;
+	joint[3] = -50. / 180 * 3.14159265;
+	joint[4] = 80. / 180 * 3.14159265;
+	joint[5] = -90. / 180 * 3.14159265;
+
+	double T[4][4];
+	ur_kinematics::forward(joint, &T[0][0]);
+	prepare_transformation(&T[0][0]);
+
+	printf("home\n");
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			printf("%.2f ", T[i][j]);
+		}
+		printf("\n");
+
+	}
+	change_state = false;
+	return go_to_joint(joint, speed_joint, false);
+}
 //go to the home position for docking procedure
 bool goto_home_docking() {
 	sensor_msgs::JointState joints_home;
@@ -1083,6 +1110,15 @@ void update() {
 		case STATES::GOTO_HOME_FOLLOW:
 			//go to home position for uav tracking
 			if (goto_home_follow()) {
+				current_state = STATES::FOLLOW;
+				if (operation_mode == OPERATION_MODE::MANUAL)
+					operation_mode = OPERATION_MODE::STOP;
+				change_state = true;
+			}
+			break;
+		case STATES::GOTO_HOME_FOLLOW2:
+			//go to home position for uav tracking
+			if (goto_home_follow2()) {
 				current_state = STATES::FOLLOW;
 				if (operation_mode == OPERATION_MODE::MANUAL)
 					operation_mode = OPERATION_MODE::STOP;
