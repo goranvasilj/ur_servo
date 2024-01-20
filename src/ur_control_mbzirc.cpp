@@ -147,6 +147,11 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 		current_state=STATES::GOTO_HOME_FOLLOW;
 		operation_mode = OPERATION_MODE::AUTO;	
 	}
+	if (operation_mode== OPERATION_MODE::FOLLOW_MODE_2){
+		current_state=STATES::GOTO_HOME_FOLLOW2;
+		operation_mode = OPERATION_MODE::AUTO;
+	}
+
 	change_state = true;
 
 }
@@ -572,8 +577,8 @@ bool goto_above() {
 				sols[i * 6 + j] += 2 * 3.14159265;
 			}
 			if (j == 0) {
-				if (sols[i * 6 + j] < 0) {
-					sols[i * 6 + j] += 2 * 3.14159265;
+				if (sols[i * 6 + j] > 0) {
+					sols[i * 6 + j] -= 2 * 3.14159265;
 				}
 			}
 			if (j == 5) {
@@ -594,7 +599,7 @@ bool goto_above() {
 //		joint[4] = 80. / 180 * 3.14159265;
 //		joint[5] = -90. / 180 * 3.14159265;
 		if (sols[i * 6 + 0] > -135 * 3.14159 / 180
-				&& sols[i * 6 + 0] < 45 * 3.14159 / 180) {
+				&& sols[i * 6 + 0] < -45 * 3.14159 / 180) {
 			if (sols[i * 6 + 1] > -170 * 3.14159 / 180
 					&& sols[i * 6 + 1] < -90 * 3.14159 / 180) {
 				if (sols[i * 6 + 2] > -120 * 3.14159 / 180
@@ -897,12 +902,12 @@ bool goto_drop() {
 	return true;
 	sensor_msgs::JointState joints_home;
 	double joint[6];
-	joint[0] = -84.88 / 180 * 3.14159265;
-	joint[1] = -129.86 / 180 * 3.14159265;
-	joint[2] = -53.65 / 180 * 3.14159265;
-	joint[3] = -85.92 / 180 * 3.14159265;
-	joint[4] = 92.73 / 180 * 3.14159265;
-	joint[5] = -309.80 / 180 * 3.14159265;
+	joint[0] = 67.24 / 180 * 3.14159265;
+	joint[1] = -130.01 / 180 * 3.14159265;
+	joint[2] = -32.38 / 180 * 3.14159265;
+	joint[3] = -105.51 / 180 * 3.14159265;
+	joint[4] = 89.92 / 180 * 3.14159265;
+	joint[5] = -168.52 / 180 * 3.14159265;
 
 	double T[4][4];
 	ur_kinematics::forward(joint, &T[0][0]);
@@ -1118,11 +1123,11 @@ void update() {
 			break;
 		case STATES::GOTO_HOME_FOLLOW2:
 			//go to home position for uav tracking
-			if (goto_home_follow2()) {
-				current_state = STATES::FOLLOW;
+			if (goto_home_follow()) {
+				current_state = STATES::FINISHED;
 				if (operation_mode == OPERATION_MODE::MANUAL)
 					operation_mode = OPERATION_MODE::STOP;
-				change_state = true;
+				stop();
 			}
 			break;
 		case STATES::TEST_SERVO:
