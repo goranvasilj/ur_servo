@@ -1084,6 +1084,10 @@ void update() {
 				change_state = true;
 			}
 			break;
+		case STATES::FINISHED:
+			// stop all
+			stop();
+			break;
 		case STATES::SERVO_UP:
 			//servo up
 			if (servo_up()) {
