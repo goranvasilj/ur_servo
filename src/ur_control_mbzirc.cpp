@@ -7,6 +7,7 @@
 #include <tf/transform_broadcaster.h>
 #include <sensor_msgs/JointState.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Float32.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <geometry_msgs/WrenchStamped.h>
 #include <tf/tf.h>
@@ -17,7 +18,7 @@
 #include <ur_msgs/SetIO.h>
 #include <control_msgs/JointJog.h>
 enum OPERATION_MODE {
-	AUTO = 0, MANUAL = 1, STOP = 2, FOLLOW_MODE = 3, TEST = 4, DOCKING_MODE = 5, FOLLOW_MODE_2 = 6
+	AUTO = 0, MANUAL = 1, STOP = 2, FOLLOW_MODE = 3, TEST = 4, DOCKING_MODE = 5, FOLLOW_MODE_2 = 6, PICKUP_AFTER_WINCH = 7
 };
 enum STATES {
 	IDLE = 0,
@@ -35,8 +36,15 @@ enum STATES {
 	TEST_SERVO = 12,
 	GOTO_HOME_DOCKING = 13,
 	DOCKING = 14,
-	GOTO_HOME_FOLLOW2 = 15
+	GOTO_HOME_FOLLOW2 = 15,
+	GOTO_HOME_FOR_PICKUP_AFTER_WINCH=16
 };
+bool uav_yaw_angle_received=false;
+double uav_yaw_angle=0;
+double uav_pickup_x=0;
+double uav_pickup_y=0;
+double uav_pickup_z=0;
+
 double laser_pose[4][4];
 double above_point[4][4];
 double xref = 0, yref = 0, zref = 0, angle_final = 0;
@@ -131,6 +139,18 @@ void follow_pose_callback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 	received_follow_pose_time = ros::Time::now();
 }
 
+//callback for receiving yaw angle from UAV when winch operation is done
+
+void uav_yaw_angle_callback(const std_msgs::Float32::ConstPtr &msg)
+{
+	uav_yaw_angle_received=true;
+	uav_yaw_angle=(*msg).data;
+	double uav_pickup_x=follow_pose.pose.position.x;
+	double uav_pickup_y=follow_pose.pose.position.y;
+	double uav_pickup_z=follow_pose.pose.position.z;
+
+}
+
 //callback for setting operation mode
 void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 	operation_mode = (OPERATION_MODE) (*msg).data;
@@ -151,7 +171,10 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 		current_state=STATES::GOTO_HOME_FOLLOW2;
 		operation_mode = OPERATION_MODE::AUTO;
 	}
-
+	if (operation_mode== OPERATION_MODE::PICKUP_AFTER_WINCH){
+		current_state=STATES::GOTO_HOME_FOR_PICKUP_AFTER_WINCH;
+		operation_mode = OPERATION_MODE::AUTO;
+	}
 	change_state = true;
 
 }
@@ -978,6 +1001,37 @@ void stop() {
 	change_state = false;
 }
 
+//caluclate above pose when pose is received from uav after winch final position
+bool calculate_above_pose_from_uav() {
+
+	//above position is 34 cm above object (14cm object height + 20cm)
+	double x_final, y_final, z_final;
+	x_final = uav_pickup_x;
+	y_final = uav_pickup_y;
+	z_final = uav_pickup_z -0.30;
+	angle_final = 6.28 - uav_yaw_angle + 3.14159 / 2;
+
+	//fill transformation matrix
+	above_point[0][3] = x_final;
+	above_point[1][3] = y_final;
+	above_point[2][3] = z_final;
+	above_point[3][3] = 1;
+	above_point[0][0] = -sin(angle_final);
+	above_point[0][1] = -cos(angle_final);
+	above_point[0][2] = 0;
+	above_point[1][0] = -cos(angle_final);
+	above_point[1][1] = sin(angle_final);
+	above_point[1][2] = 0;
+	above_point[2][0] = 0;
+	above_point[2][1] = 0;
+	above_point[2][2] = -1;
+	above_point[3][0] = 0;
+	above_point[3][1] = 0;
+	above_point[3][2] = 0;
+	above_point[3][3] = 1;
+
+}
+
 //calculate robot pose directly above the object
 bool calculate_above_pose() {
 	if (count_boxes > 0) {
@@ -1132,6 +1186,16 @@ void update() {
 				if (operation_mode == OPERATION_MODE::MANUAL)
 					operation_mode = OPERATION_MODE::STOP;
 				stop();
+			}
+			break;
+		case STATES::GOTO_HOME_FOR_PICKUP_AFTER_WINCH:
+			//go to home position for pciking up object based on last UAV pose (pulled by the winch)
+			if (goto_home()) {
+				calculate_above_pose_from_uav();
+				current_state = STATES::GOTO_ABOVE;
+				if (operation_mode == OPERATION_MODE::MANUAL)
+					operation_mode = OPERATION_MODE::STOP;
+				change_state = true;
 			}
 			break;
 		case STATES::TEST_SERVO:
@@ -1299,6 +1363,11 @@ void init(ros::NodeHandle nh_ns, ros::NodeHandle nh) {
 	//subscriber to receive manual commands if the system is in manual operating mode
 	static ros::Subscriber manual_command_subscriber = nh.subscribe(
 			manual_command_topic, 1000, manual_command_callback);
+
+
+	//subscriber to receive yaw angle when winch operation is done, and UAV is ready to fly away
+	static ros::Subscriber uav_yaw_angle = nh.subscribe(
+			"/ur_winch_done", 1000, uav_yaw_angle_callback);
 
 	//publisher for servoing commands in cartesian frema
 	geometry_msgs::TwistStamped reference;
