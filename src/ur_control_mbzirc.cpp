@@ -1338,49 +1338,49 @@ void init(ros::NodeHandle nh_ns, ros::NodeHandle nh) {
 
 	//subcriber to joint states from robot controller
 	static ros::Subscriber joints_subscriber = nh.subscribe(joint_states_topic,
-			1000, joints_callback);
+			1, joints_callback);
 
 	//subscriber for receiving pose of uav in robot base frame
 	static ros::Subscriber follow_pose_subscriber = nh.subscribe(
-			follow_pose_topic, 1000, follow_pose_callback);
+			follow_pose_topic, 1, follow_pose_callback);
 
 	//subcriber for receiving pose of large object from camera
 	static ros::Subscriber box_position_subscriber = nh.subscribe(
-			box_position_array_topic, 1000, box_position_array_callback);
+			box_position_array_topic, 1, box_position_array_callback);
 
 	//subscriber for seting operating mode
 	static ros::Subscriber operating_mode_subscriber = nh.subscribe(
-			operation_mode_topic, 1000, operation_mode_callback);
+			operation_mode_topic, 1, operation_mode_callback);
 
 	//subscriber for receiving of manual servoing commands
-	static ros::Subscriber keyboard_subscriber = nh.subscribe("/cmd_vel", 1000,
+	static ros::Subscriber keyboard_subscriber = nh.subscribe("/cmd_vel", 1,
 			keyboard_callback);
 
 	//subscriber to information if servoing is limitting force, which is a signal to close the tool
 	static ros::Subscriber servo_force_limiting_subscriber = nh.subscribe(
-			servo_force_limiting_topic, 1000, force_limiting_callback);
+			servo_force_limiting_topic, 1, force_limiting_callback);
 
 	//subscriber to receive manual commands if the system is in manual operating mode
 	static ros::Subscriber manual_command_subscriber = nh.subscribe(
-			manual_command_topic, 1000, manual_command_callback);
+			manual_command_topic, 1, manual_command_callback);
 
 
 	//subscriber to receive yaw angle when winch operation is done, and UAV is ready to fly away
 	static ros::Subscriber uav_yaw_angle = nh.subscribe(
-			"/ur_winch_done", 1000, uav_yaw_angle_callback);
+			"/ur_winch_done", 1, uav_yaw_angle_callback);
 
 	//publisher for servoing commands in cartesian frema
 	geometry_msgs::TwistStamped reference;
 	servo_reference_publisher = nh.advertise < geometry_msgs::Twist
-			> (velocity_cmd_topic, 1000);
+			> (velocity_cmd_topic, 1);
 
 	//publisher for servoing commands in joint frame
 	servo_reference_joint_publisher = nh.advertise < control_msgs::JointJog
-			> (joint_velocity_cmd_topic, 1000);
+			> (joint_velocity_cmd_topic, 1);
 
 	//publisher for sending pose of tool for tracking LIDAR
 	tool_pose_publisher = nh.advertise < std_msgs::Float32MultiArray
-			> (tool_pose_topic, 1000);
+			> (tool_pose_topic, 1);
 
 	//set initial state and mode of operation
 //	operation_mode = OPERATION_MODE::FOLLOW_MODE;
