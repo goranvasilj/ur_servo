@@ -448,37 +448,37 @@ int main(int argc, char **argv) {
 	nh_ns.param("desired_velocity", desired_velocity, 0.01);
 
 	//subscriber for joint states
-	ros::Subscriber joints_subscriber = nh.subscribe(joint_states_topic, 1000,
+	ros::Subscriber joints_subscriber = nh.subscribe(joint_states_topic, 1,
 			joints_callback);
 
 	//subscirer for topics receiving servoing reference in cartesian space
 	ros::Subscriber servo_reference_subscriber = nh.subscribe(
-			servo_reference_topic, 1000, servo_reference_callback);
+			servo_reference_topic, 1, servo_reference_callback);
 
 	//subscriber for topics receiving servoing reference in joint space
 	ros::Subscriber servo_joint_reference_subscriber = nh.subscribe(
-			servo_joint_reference_topic, 1000, servo_joint_reference_callback);
+			servo_joint_reference_topic, 1, servo_joint_reference_callback);
 
 	//subscrbier for receiving force and torque on the flange
 	ros::Subscriber force_torque_subscriber = nh.subscribe(force_torque_topic,
-			1000, force_torque_callback);
+			1, force_torque_callback);
 
 	//subscriber for receiving tool pose transformation in robot base
-	ros::Subscriber tool_pose_subscriber = nh.subscribe(tool_pose_topic, 1000,
+	ros::Subscriber tool_pose_subscriber = nh.subscribe(tool_pose_topic, 1,
 			tool_pose_callback);
 
 	geometry_msgs::TwistStamped reference;
 	//publisher of servoing commands in cartesian space
 	ros::Publisher velocity_reference_publisher = nh.advertise
-			< geometry_msgs::TwistStamped > (twist_velocity_cmd_topic, 1000);
+			< geometry_msgs::TwistStamped > (twist_velocity_cmd_topic, 1);
 
 	//publisher of servoing commands in joint space
 	ros::Publisher velocity_joint_reference_publisher = nh.advertise
-			< control_msgs::JointJog > (joint_velocity_cmd_topic, 1000);
+			< control_msgs::JointJog > (joint_velocity_cmd_topic, 1);
 
 	//publisher that publish if servoing downward hit an obstacle
 	ros::Publisher force_limiting_publisher = nh.advertise < std_msgs::Int32
-			> (servo_force_limiting_topic, 1000);
+			> (servo_force_limiting_topic, 1);
 
 	/*
 
