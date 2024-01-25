@@ -13,6 +13,7 @@
 #include <tf/tf.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/Bool.h>
 #include <stdio.h>
 #include <ur_kinematics/ur_kin.h>
 #include <ur_msgs/SetIO.h>
@@ -58,6 +59,7 @@ int force_limiting = 0;
 int joints_received = 0;
 ros::ServiceClient gripper_service;
 ros::Publisher servo_reference_publisher;
+ros::Publisher task_finished_publisher;
 ros::Publisher tool_pose_publisher;
 ros::Publisher servo_reference_joint_publisher;
 ros::Time received_follow_pose_time = ros::Time(0);
@@ -156,7 +158,7 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 	operation_mode = (OPERATION_MODE) (*msg).data;
 	current_state = STATES::IDLE;
 	if (operation_mode == OPERATION_MODE::TEST) {
-		current_state = STATES::TEST_SERVO;
+		current_state = STATES::OPEN_TOOL;//STATES::TEST_SERVO;
 		operation_mode = OPERATION_MODE::AUTO;
 	}
 	if (operation_mode == OPERATION_MODE::DOCKING_MODE) {
@@ -1166,6 +1168,9 @@ void update() {
 				current_state = STATES::FINISHED;
 				if (operation_mode == OPERATION_MODE::MANUAL)
 					operation_mode = OPERATION_MODE::STOP;
+				std_msgs::Bool msg;
+				msg.data=false;
+				task_finished_publisher.publish(msg);
 				stop();
 				change_state = true;
 			}
@@ -1373,6 +1378,10 @@ void init(ros::NodeHandle nh_ns, ros::NodeHandle nh) {
 	geometry_msgs::TwistStamped reference;
 	servo_reference_publisher = nh.advertise < geometry_msgs::Twist
 			> (velocity_cmd_topic, 1);
+
+	//publisher for sending message when mission is done
+	task_finished_publisher = nh.advertise < std_msgs::Bool
+			> ("/big_object_finished", 1);
 
 	//publisher for servoing commands in joint frame
 	servo_reference_joint_publisher = nh.advertise < control_msgs::JointJog
