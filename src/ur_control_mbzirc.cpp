@@ -166,7 +166,7 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 		operation_mode = OPERATION_MODE::AUTO;
 	}
 	if (operation_mode== OPERATION_MODE::FOLLOW_MODE){
-		current_state=STATES::GOTO_HOME_FOLLOW;
+		current_state=STATES::FOLLOW;
 		operation_mode = OPERATION_MODE::AUTO;	
 	}
 	if (operation_mode== OPERATION_MODE::FOLLOW_MODE_2){
