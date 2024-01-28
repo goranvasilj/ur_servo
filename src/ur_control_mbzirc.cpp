@@ -643,8 +643,17 @@ bool goto_above() {
 			}
 		}
 	}
+	static bool first_fail=false;
 	if (found == 0) {
+
 		printf("no good solutions\n");
+		if (first_fail==false)
+		{
+			first_fail=true;
+			std_msgs::Bool msg;
+			msg.data=false;
+			task_finished_publisher.publish(msg);
+		}
 		return false;
 	}
 
@@ -1106,6 +1115,9 @@ void update() {
 						operation_mode = OPERATION_MODE::STOP;
 					change_state = true;
 				} else {
+					std_msgs::Bool msg;
+					msg.data=false;
+					task_finished_publisher.publish(msg);
 					current_state = STATES::GOTO_HOME;
 					if (operation_mode == OPERATION_MODE::MANUAL)
 						operation_mode = OPERATION_MODE::STOP;
@@ -1169,7 +1181,7 @@ void update() {
 				if (operation_mode == OPERATION_MODE::MANUAL)
 					operation_mode = OPERATION_MODE::STOP;
 				std_msgs::Bool msg;
-				msg.data=false;
+				msg.data=true;
 				task_finished_publisher.publish(msg);
 				stop();
 				change_state = true;
