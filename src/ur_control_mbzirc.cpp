@@ -47,6 +47,7 @@ double uav_pickup_y=0;
 double uav_pickup_z=0;
 
 double laser_pose[4][4];
+double base_pose[4][4];
 double above_point[4][4];
 double xref = 0, yref = 0, zref = 0, angle_final = 0;
 double speed_linear = 0.02, speed_angular = 0.03, speed_joint_tracking = 0.06
@@ -147,9 +148,16 @@ void uav_yaw_angle_callback(const std_msgs::Float32::ConstPtr &msg)
 {
 	uav_yaw_angle_received=true;
 	uav_yaw_angle=(*msg).data;
-	double uav_pickup_x=follow_pose.pose.position.x;
-	double uav_pickup_y=follow_pose.pose.position.y;
-	double uav_pickup_z=follow_pose.pose.position.z;
+	double x=follow_pose.pose.position.x;
+	double y=follow_pose.pose.position.y;
+	double z=follow_pose.pose.position.z;
+	double uav_pickup_x = x * base_pose[0][0] + y * base_pose[0][1]
+			+ z * base_pose[0][2] + base_pose[0][3];
+	double uav_pickup_y = x * base_pose[1][0] + y * base_pose[1][1]
+			+ z * base_pose[1][2] + base_pose[1][3];
+	double uav_pickup_z = x * base_pose[2][0] + y * base_pose[2][1]
+			+ z * base_pose[2][2] + base_pose[2][3];
+
 
 }
 
@@ -1077,7 +1085,7 @@ bool calculate_above_pose_from_uav() {
 	x_final = uav_pickup_x;
 	y_final = uav_pickup_y;
 	z_final = uav_pickup_z -0.30;
-	angle_final = 6.28 - uav_yaw_angle + 3.14159 / 2;
+	angle_final = 6.28 - uav_yaw_angle + 3.14159;
 
 	//fill transformation matrix
 	above_point[0][3] = x_final;
@@ -1314,6 +1322,7 @@ void update() {
 void read_transform() {
 	static tf::TransformListener listener;
 	tf::StampedTransform transform;
+	tf::StampedTransform transform1;
 	try {
 		listener.lookupTransform(lidar_sensor_frame,
 				base_link_enu_aligned_frame, ros::Time(0), transform);
@@ -1336,6 +1345,32 @@ void read_transform() {
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
 				printf("%.2f ", laser_pose[i][j]);
+			}
+			printf("\n");
+		}
+		printf("\n");
+
+		listener.lookupTransform("/base_link_kinematics",
+				base_link_enu_aligned_frame, ros::Time(0), transform1);
+		//transform to transformation matrix
+		tf::Matrix3x3 mat1 = transform1.getBasis();
+		tf::Vector3 vec1 = transform1.getOrigin();
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				base_pose[i][j] = mat1[i][j];
+			}
+		}
+		base_pose[3][0] = 0;
+		base_pose[3][1] = 0;
+		base_pose[3][2] = 0;
+		base_pose[3][3] = 1;
+		base_pose[0][3] = vec1[0];
+		base_pose[1][3] = vec1[1];
+		base_pose[2][3] = vec1[2];
+		printf("Laser pose\n");
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				printf("%.2f ", base_pose[i][j]);
 			}
 			printf("\n");
 		}
