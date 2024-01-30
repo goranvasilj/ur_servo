@@ -1251,6 +1251,7 @@ void update() {
 				stop();
 				change_state = true;
 			}
+                        stop_movement();
 			break;
 		case STATES::GOTO_HOME_FOLLOW:
 			//go to home position for uav tracking
