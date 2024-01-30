@@ -172,7 +172,7 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 		uav_yaw_angle=1.57;
 		calculate_above_pose_from_uav();
 
-		current_state = STATES::GOTO_ABOVE;
+		current_state = STATES::GOTO_DROP;
 		operation_mode = OPERATION_MODE::AUTO;
 	}
 	if (operation_mode == OPERATION_MODE::DOCKING_MODE) {
