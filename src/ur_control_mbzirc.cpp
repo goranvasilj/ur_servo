@@ -151,11 +151,11 @@ void uav_yaw_angle_callback(const std_msgs::Float32::ConstPtr &msg)
 	double x=follow_pose.pose.position.x;
 	double y=follow_pose.pose.position.y;
 	double z=follow_pose.pose.position.z;
-	double uav_pickup_x = x * base_pose[0][0] + y * base_pose[0][1]
+	uav_pickup_x = x * base_pose[0][0] + y * base_pose[0][1]
 			+ z * base_pose[0][2] + base_pose[0][3];
-	double uav_pickup_y = x * base_pose[1][0] + y * base_pose[1][1]
+	uav_pickup_y = x * base_pose[1][0] + y * base_pose[1][1]
 			+ z * base_pose[1][2] + base_pose[1][3];
-	double uav_pickup_z = x * base_pose[2][0] + y * base_pose[2][1]
+	uav_pickup_z = x * base_pose[2][0] + y * base_pose[2][1]
 			+ z * base_pose[2][2] + base_pose[2][3];
 
 
