@@ -1226,6 +1226,7 @@ void update() {
 				current_state = STATES::GOTO_DROP;
 				if (operation_mode == OPERATION_MODE::MANUAL)
 					operation_mode = OPERATION_MODE::STOP;
+				stop_movement();
 				change_state = true;
 			}
 			break;
