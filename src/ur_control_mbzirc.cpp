@@ -997,8 +997,7 @@ bool follow() {
 
 //go top predefined drop position
 bool goto_drop() {
-	stop_movement();
-	return true;
+
 	sensor_msgs::JointState joints_home;
 	double joint[6];
 	joint[0] = 67.24 / 180 * 3.14159265;
@@ -1018,7 +1017,7 @@ bool goto_drop() {
 		}
 		printf("\n");
 	}
-	return go_to_joint(&T[0][0], speed_joint, false);
+	return go_to_joint(joint, speed_joint,false);
 }
 
 //servo with defined force down toward object
@@ -1085,7 +1084,7 @@ bool calculate_above_pose_from_uav() {
 	x_final = uav_pickup_x;
 	y_final = uav_pickup_y;
 	z_final = uav_pickup_z -0.30;
-	angle_final = 6.28 - uav_yaw_angle + 3.14159;
+	angle_final = 6.28 - uav_yaw_angle + 3.14159/2;
 
 	//fill transformation matrix
 	above_point[0][3] = x_final;
