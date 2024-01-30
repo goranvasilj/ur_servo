@@ -77,7 +77,7 @@ std::vector<double> x_box;
 std::vector<double> y_box;
 std::vector<double> z_box;
 std::vector<double> angle_box;
-
+bool calculate_above_pose_from_uav();
 //function which return signum of the input value
 double sign(double x) {
 	if (x < 0)
@@ -158,7 +158,13 @@ void operation_mode_callback(const std_msgs::Int32::ConstPtr &msg) {
 	operation_mode = (OPERATION_MODE) (*msg).data;
 	current_state = STATES::IDLE;
 	if (operation_mode == OPERATION_MODE::TEST) {
-		current_state = STATES::OPEN_TOOL;//STATES::TEST_SERVO;
+		uav_pickup_x=-0.2;
+		uav_pickup_y=-0.5;
+		uav_pickup_z=0.1;
+		uav_yaw_angle=1.57;
+		calculate_above_pose_from_uav();
+
+		current_state = STATES::GOTO_ABOVE;
 		operation_mode = OPERATION_MODE::AUTO;
 	}
 	if (operation_mode == OPERATION_MODE::DOCKING_MODE) {
@@ -588,7 +594,58 @@ bool goto_above() {
 	double sols[8 * 6];
 	prepare_transformation_inverse(&above_point1[0][0]);
 	int k = ur_kinematics::inverse(&above_point1[0][0], sols, 0);
+
+	if (k==0)
+	{
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				above_point1[i][j] = above_point[i][j];
+			}
+		}
+		double dist=0.2;
+		above_point1[0][3] -= above_point1[0][0] * 0.2;
+		above_point1[1][3] -= above_point1[1][0] * 0.2;
+		above_point1[2][3] -= above_point1[2][0] * 0.2;
+
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				printf("%.4f ", above_point1[i][j]);
+			}
+			printf("\n");
+		}
+
+
+		prepare_transformation_inverse(&above_point1[0][0]);
+		k = ur_kinematics::inverse(&above_point1[0][0], sols, 0);
+
+		if (k==0)
+		{
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < 4; j++) {
+					above_point1[i][j] = above_point[i][j];
+				}
+			}
+			double dist=0.2;
+			above_point1[0][3] += above_point1[0][0] * 0.2;
+			above_point1[1][3] += above_point1[1][0] * 0.2;
+			above_point1[2][3] += above_point1[2][0] * 0.2;
+
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < 4; j++) {
+					printf("%.4f ", above_point1[i][j]);
+				}
+				printf("\n");
+			}
+
+
+			prepare_transformation_inverse(&above_point1[0][0]);
+			k = ur_kinematics::inverse(&above_point1[0][0], sols, 0);
+
+		}
+	}
+	printf("\n");
 	int found = 0;
+
 
 	//select the right solution
 	for (int i = 0; i < k; i++) {
@@ -644,9 +701,9 @@ bool goto_above() {
 		}
 	}
 	static bool first_fail=false;
-	if (found == 0) {
+	if (found == 0 || above_point[1][3]>-0.6) {
 
-		printf("no good solutions\n");
+		printf("no good solutions from %d found\n",k);
 		if (first_fail==false)
 		{
 			first_fail=true;
@@ -995,7 +1052,7 @@ bool servo_up() {
 	servo_reference_publisher.publish(ref);
 	change_state = false;
 	printf("%.2f\n", T_current[2 * 4 + 3] - initial_z);
-	if (T_current[2 * 4 + 3] - initial_z > 0.2) {
+	if (T_current[2 * 4 + 3] - initial_z > 0.25) {
 		return true;
 	} else {
 		return false;
